@@ -5,6 +5,8 @@ from gevent.pool import Pool
 from gevent.server import StreamServer
 from gevent.thread import get_ident
 
+from protocol_handler import ProtocolHandler
+
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +21,8 @@ class QueueServer:
                                     self.connection_handler,
                                     spawn=self._pool)
         
+        self._protocol = ProtocolHandler()
+        
         
     
     def connection_handler(self, conn, address):
@@ -28,11 +32,7 @@ class QueueServer:
         socket_file = conn.makefile('rwb')
         while True:
             try:
-                logger.info('Reading data')
-                data = socket_file.read(1)
-                if not data:
-                    raise EOFError()
-                logger.info(f'Received data {data.decode("utf-8")}')
+                self.request_response(socket_file)
             except EOFError:
                 logger.info(f"Finished reading request at {address[0]}:{address[1]}")
                 socket_file.close()
@@ -41,6 +41,18 @@ class QueueServer:
                 logger.error(f"Error processing request. {str(e)}")
                 break
         logger.info('Finished reading request')
+    
+    def request_response(self, socket_file):
+        data = self._protocol.handle_request(socket_file)
+        try:
+            resp = self.respond(data)
+        except Exception as e:
+            logger.exception(f'Unhandled error {str(e)}')
+            resp = "Unhandled error"
+        self._protocol.write_response(socket_file, resp)
+    
+    def respond(self, data):
+        return "Persisted response\n"
     
     def run(self):
         print('Server is running')
