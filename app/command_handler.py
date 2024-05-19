@@ -1,8 +1,10 @@
-from const import Value, KV
+
+from functools import wraps
 from collections import deque
 import time
 import heapq
 
+from const import Value, KV, SET, HASH, QUEUE
 from exc import CommandError
 
 
@@ -36,11 +38,143 @@ class CommandHandler:
             b'LEN': self.kv_len,
             b'FLUSH': self.kv_flush,
             
+            # Set commands.
+            b'SADD': self.sadd,
+            b'SCARD': self.scard,
+            b'SDIFF': self.sdiff,
+            b'SDIFFSTORE': self.sdiffstore,
+            b'SINTER': self.sinter,
+            b'SINTERSTORE': self.sinterstore,
+            b'SISMEMBER': self.sismember,
+            b'SMEMBERS': self.smembers,
+            b'SPOP': self.spop,
+            b'SREM': self.srem,
+            b'SUNION': self.sunion,
+            b'SUNIONSTORE': self.sunionstore,
+            
             b'EXPIRE': self.expire
         }
-    
+        
     def handle(self, command):
         return self._commands[command]
+        
+    def enforce_datatype(data_type, set_missing=True, subtype=None):
+        def decorator(func):
+            @wraps(func)
+            def inner(self, key, *args, **kwargs):
+                self.check_datatype(data_type, key, set_missing, subtype)
+                return func(self, key, *args, **kwargs)
+            return inner
+        return decorator
+    
+    def check_datatype(self, data_type, key, set_missing=True, subtype=None):
+        if key in self._kv and self.check_expired(key):
+            del self._kv[key]
+        
+        if key in self._kv:
+            value = self._kv[key]
+            if value.data_type != data_type:
+                raise CommandError('Operation against wrong key type.')
+            if subtype is not None and not isinstance(value.value, subtype):
+                raise CommandError('Operation against wrong value type.')
+        elif set_missing:
+            if data_type == HASH:
+                value = {}
+            elif data_type == QUEUE:
+                value = deque()
+            elif data_type == SET:
+                value = set()
+            elif data_type == KV:
+                value = ''
+            
+            self._kv[key] = Value(data_type, value)
+    
+    @enforce_datatype(SET)
+    def sadd(self, key, *members):
+        self._kv[key].value.update(members)
+        return self.scard(key)
+    
+    @enforce_datatype(SET)
+    def scard(self, key):
+        return len(self._kv[key].value)
+    
+    @enforce_datatype(SET)
+    def sdiff(self, key, *keys):
+        diff = set(self._kv[key].value)
+        for other_key in keys:
+            if other_key in self._kv:
+                self.check_datatype(SET, other_key)
+                diff -= set(self._kv[other_key].value)
+        
+        return list(diff)
+    
+    @enforce_datatype(SET)
+    def sdiffstore(self, dest, key, *keys):
+        diff = set(self.sdiff(key, *keys))
+        self.check_datatype(SET, dest)
+        self._kv[dest] = Value(SET, diff)
+        return len(diff)
+    
+    @enforce_datatype(SET)
+    def sinter(self, key, *keys):
+        src = set(self._kv[key].value)
+        for other_key in keys:
+            self.check_datatype(SET, other_key)
+            src &= self._kv[other_key].value
+
+        return list(src)
+    
+    @enforce_datatype(SET)
+    def sinterstore(self, dest, key, *keys):
+        inter = set(self.sinter(key, *keys))
+        self.check_datatype(SET, dest)
+        self._kv[dest] = Value(SET, inter)
+        return len(inter)
+    
+    @enforce_datatype(SET)
+    def sismember(self, key, member):
+        return 1 if member in self._kv[key].value else 0
+    
+    @enforce_datatype(SET)
+    def smembers(self, key):
+        return self._kv[key].value
+    
+    @enforce_datatype(SET)
+    def spop(self, key, n=1):
+        accum = []
+        for _ in range(n):
+            try:
+                accum.append(self._kv[key].value.pop())
+            except KeyError:
+                break
+        return accum
+    
+    @enforce_datatype(SET)
+    def srem(self, key, *members):
+        ct = 0
+        for member in members:
+            try:
+                self._kv[key].value.remove(member)
+            except KeyError:
+                pass
+            else:
+                ct += 1
+        return ct
+
+    @enforce_datatype(SET)
+    def sunion(self, key, *keys):
+        src = set(self._kv[key].value)
+        for key in keys:
+            self.check_datatype(SET, key)
+            src |= self._kv[key].value
+        return list(src)
+
+    @enforce_datatype(SET)
+    def sunionstore(self, dest, key, *keys):
+        un = set(self.sunion(key, *keys))
+        self.check_datatype(SET, dest)
+        self._kv[dest] = Value(SET, un)
+        return len(un)
     
     def kv_exists(self, key):
         return 1 if key in self._kv and not self.check_expired(key) else 0
@@ -68,9 +202,11 @@ class CommandHandler:
         self._kv[key] = Value(KV, value)
         return value
     
+    @enforce_datatype(KV, set_missing=False, subtype=(float, int))
     def kv_decr(self, key):
         return self._kv_incr(key, -1)
     
+    @enforce_datatype(KV, set_missing=False, subtype=(float, int))
     def kv_decrby(self, key, n):
         return self._kv_incr(key, -n)
     
@@ -112,9 +248,11 @@ class CommandHandler:
         self._kv[key] = Value(KV, value)
         return orig
     
+    @enforce_datatype(KV, set_missing=False, subtype=(float, int))
     def kv_incr(self, key):
         return self._kv_incr(key, 1)
     
+    @enforce_datatype(KV, set_missing=False, subtype=(float, int))
     def kv_incrby(self, key, n):
         return self._kv_incr(key, n)
     

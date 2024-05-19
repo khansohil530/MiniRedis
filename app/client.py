@@ -62,6 +62,19 @@ class Client:
     length = command('LEN')
     flush = command('FLUSH')
     
+    # SET commands
+    sadd = command('SADD')
+    scard = command('SCARD')
+    sdiff = command('SDIFF')
+    sdiffstore = command('SDIFFSTORE')
+    sinter = command('SINTER')
+    sinterstore = command('SINTERSTORE')
+    sismember = command('SISMEMBER')
+    smembers = command('SMEMBERS')
+    spop = command('SPOP')
+    srem = command('SREM')
+    sunion = command('SUNION')
+    
     # MISC.
     expire = command('EXPIRE')
 
