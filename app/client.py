@@ -40,9 +40,30 @@ class Client:
         
         return method
     
+    # key value commands
+    append = command('APPEND')
+    decr = command('DECR')
+    decrby = command('DECRBY')
+    delete = command('DELETE')
+    exists = command('EXISTS')
     get = command('GET')
+    getset = command('GETSET')
+    incr = command('INCR')
+    incrby = command('INCRBY')
+    mdelete = command('MDELETE')
+    mget = command('MGET')
+    mpop = command('MPOP')
+    mset = command('MSET')
+    msetex = command('MSETEX')
+    pop = command('POP')
     set = command('SET')
+    setex = command('SETEX')
+    setnx = command('SETNX')
     length = command('LEN')
+    flush = command('FLUSH')
+    
+    # MISC.
+    expire = command('EXPIRE')
 
     def __len__(self):
         return self.length() 
