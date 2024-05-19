@@ -16,11 +16,11 @@ class Client:
         self._protocol = ProtocolHandler()
         
     
-    def execute(self, data):
+    def execute(self, *args):
         socket_file = create_socket_file(self._host, self._port)
         
         # write
-        self._protocol.write_response(socket_file, data)
+        self._protocol.write_response(socket_file, args)
 
         # read
         try:
@@ -33,3 +33,16 @@ class Client:
             raise Exception('internal server error')
 
         return resp
+    
+    def command(cmd):
+        def method(self, *args):
+            return self.execute(cmd.encode('utf-8'), *args)
+        
+        return method
+    
+    get = command('GET')
+    set = command('SET')
+    length = command('LEN')
+
+    def __len__(self):
+        return self.length() 

@@ -1,7 +1,7 @@
 FROM python:3.10-slim AS build
 
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends gcc libffi-dev \
@@ -16,8 +16,8 @@ RUN python -m venv /opt/venv \
 
 FROM python:3.10-slim AS runtime
 
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 ENV PATH="/opt/venv/bin:$PATH"
 
 COPY --from=build /opt/venv /opt/venv

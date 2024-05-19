@@ -6,6 +6,8 @@ from gevent.server import StreamServer
 from gevent.thread import get_ident
 
 from protocol_handler import ProtocolHandler
+from command_handler import CommandHandler
+from exc import CommandError
 
 
 logger = logging.getLogger(__name__)
@@ -22,8 +24,7 @@ class QueueServer:
                                     spawn=self._pool)
         
         self._protocol = ProtocolHandler()
-        
-        
+        self._commands = CommandHandler()
     
     def connection_handler(self, conn, address):
         logger.info(f'Request received on address {address[0]}:{address[1]}')
@@ -52,10 +53,23 @@ class QueueServer:
         self._protocol.write_response(socket_file, resp)
     
     def respond(self, data):
-        return "Persisted response\n"
+        if not isinstance(data, list):
+            try:
+                data = data.split()
+            except:
+                raise CommandError('Unrecogonized request type')
+        
+        if not isinstance(data[0], (str, bytes)):
+            raise CommandError('First parameter must be a command name')
+        
+        command = data[0].upper()
+        try:
+            logger.debug(f"Receieved {command.decode('utf-8')}")
+            return self._commands.handle(command)(*data[1:])
+        except KeyError:
+            raise CommandError(f'Unrecogonized command: {command}')
     
     def run(self):
-        print('Server is running')
         self._server.serve_forever()
                 
         
