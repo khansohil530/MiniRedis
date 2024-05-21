@@ -75,6 +75,20 @@ class Client:
     srem = command('SREM')
     sunion = command('SUNION')
     
+    # HASHMAP commands
+    hdel = command('HDEL')
+    hexists = command('HEXISTS')
+    hget = command('HGET')
+    hgetall = command('HGETALL')
+    hincrby = command('HINCRBY')
+    hkeys = command('HKEYS')
+    hlen = command('HLEN')
+    hmget = command('HMGET')
+    hmset = command('HMSET')
+    hset = command('HSET')
+    hsetnx = command('HSETNX')
+    hvals = command('HVALS')
+    
     # MISC.
     expire = command('EXPIRE')
 
