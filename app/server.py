@@ -7,7 +7,7 @@ from gevent.thread import get_ident
 
 from protocol_handler import ProtocolHandler
 from command_handler import CommandHandler
-from exc import CommandError
+from exc import CommandError, ClientQuit, Shutdown
 
 
 logger = logging.getLogger(__name__)
@@ -38,6 +38,9 @@ class QueueServer:
                 logger.info(f"Finished reading request at {address[0]}:{address[1]}")
                 socket_file.close()
                 break
+            except ClientQuit:
+                logger.info(f"Client exited: {address[0]}:{address[1]}")
+                break
             except Exception as e:
                 logger.error(f"Error processing request. {str(e)}")
                 break
@@ -47,6 +50,13 @@ class QueueServer:
         data = self._protocol.handle_request(socket_file)
         try:
             resp = self.respond(data)
+        except Shutdown:
+            logger.info('Shutting down')
+            self._protocol.write_response(socket_file, 1)
+            raise KeyboardInterrupt
+        except ClientQuit:
+            self._protocol.write_response(socket_file, 1)
+            raise
         except Exception as e:
             logger.exception(f'Unhandled error {str(e)}')
             resp = "Unhandled error"

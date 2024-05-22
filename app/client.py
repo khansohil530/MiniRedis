@@ -105,6 +105,9 @@ class Client:
     
     # MISC.
     expire = command('EXPIRE')
+    flushall = command('FLUSHALL')
+    quit = command('QUIT')
+    shutdown = command('SHUTDOWN')
 
     def __len__(self):
         return self.length() 

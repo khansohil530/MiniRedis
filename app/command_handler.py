@@ -5,7 +5,7 @@ import time
 import heapq
 
 from const import Value, KV, SET, HASH, QUEUE
-from exc import CommandError
+from exc import CommandError, ClientQuit, Shutdown
 
 
 class CommandHandler:
@@ -80,7 +80,11 @@ class CommandHandler:
             b'RPOPLPUSH': self.rpoplpush,
             b'LFLUSH': self.lflush,
             
-            b'EXPIRE': self.expire
+            # Misc.
+            b'EXPIRE': self.expire,
+            b'FLUSHALL': self.flush_all,
+            b'QUIT': self.client_quit,
+            b'SHUTDOWN': self.shutdown,
         }
         
     def handle(self, command):
@@ -116,6 +120,17 @@ class CommandHandler:
                 value = ''
             
             self._kv[key] = Value(data_type, value)
+    
+    def flush_all(self):
+        self.kv_flush()
+        return 1
+    
+    def client_quit(self):
+        raise ClientQuit('client closed connection')
+    
+    def shutdown(self):
+        raise Shutdown('shutting down')
+    
     
     @enforce_datatype(QUEUE)
     def lpush(self, key, *values):
