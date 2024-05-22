@@ -89,6 +89,20 @@ class Client:
     hsetnx = command('HSETNX')
     hvals = command('HVALS')
     
+    # Queue commands
+    lpush = command('LPUSH')
+    rpush = command('RPUSH')
+    lpop = command('LPOP')
+    rpop = command('RPOP')
+    lrem = command('LREM')
+    llen = command('LLEN')
+    lindex = command('LINDEX')
+    lrange = command('LRANGE')
+    lset = command('LSET')
+    ltrim = command('LTRIM')
+    rpoplpush = command('RPOPLPUSH')
+    lflush = command('LFLUSH')
+    
     # MISC.
     expire = command('EXPIRE')
 
