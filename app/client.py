@@ -108,6 +108,9 @@ class Client:
     flushall = command('FLUSHALL')
     quit = command('QUIT')
     shutdown = command('SHUTDOWN')
+    save = command('SAVE')
+    restore = command('RESTORE')
+    merge = command('MERGE')
 
     def __len__(self):
         return self.length() 

@@ -28,4 +28,6 @@ COPY /app /app
 
 EXPOSE 8888
 
+VOLUME [ "/data" ]
+
 CMD ["python3", "server.py", "-H", "0.0.0.0"]

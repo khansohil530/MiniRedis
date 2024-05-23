@@ -3,6 +3,8 @@ from functools import wraps
 from collections import deque
 import time
 import heapq
+import pickle
+import os
 
 from const import Value, KV, SET, HASH, QUEUE
 from exc import CommandError, ClientQuit, Shutdown
@@ -85,6 +87,9 @@ class CommandHandler:
             b'FLUSHALL': self.flush_all,
             b'QUIT': self.client_quit,
             b'SHUTDOWN': self.shutdown,
+            b'SAVE': self.save_to_disk,
+            b'RESTORE': self.restore_from_disk,
+            b'MERGE': self.merge_from_disk,
         }
         
     def handle(self, command):
@@ -121,6 +126,32 @@ class CommandHandler:
             
             self._kv[key] = Value(data_type, value)
     
+    def _get_state(self):
+        return {'kv': self._kv}
+    
+    def _set_state(self, state, merge=False):
+        if not merge:
+            self._kv = state['kv']
+        else:
+            merge = state['kv'].update(self._kv)
+            self._kv = merge
+    
+    def save_to_disk(self, filename):
+        with open(filename, 'wb') as fh:
+            pickle.dump(self._get_state(), fh, pickle.HIGHEST_PROTOCOL)
+        return True
+    
+    def restore_from_disk(self, filename, merge=False):
+        if not os.path.exists(filename):
+            return False
+        with open(filename, 'rb') as fh:
+            state = pickle.load(fh)
+        self._set_state(state, merge=merge)
+        return True
+    
+    def merge_from_disk(self, filename):
+        return self.restore_from_disk(filename, merge=True)
+
     def flush_all(self):
         self.kv_flush()
         return 1
