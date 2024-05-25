@@ -103,11 +103,14 @@ def get_option_parse() -> OptionParser:
                       help='Maximum number of clients.', type=int)
     parser.add_option('-t', '--use-threads', action='store_false', default=True, dest='use_gevent',
                       help='Use threads instead of gevent.')
+    parser.add_option('-l', '--log-file', dest='log_file', help='Log file.')
     
     return parser
 
 def configure_logger(options: OptionParser):
     logger.addHandler(logging.StreamHandler())
+    if options.log_file:
+        logger.addHandler(logging.FileHandler(options.log_file))
     if options.debug:
         logger.setLevel(logging.DEBUG)
     elif options.error:
