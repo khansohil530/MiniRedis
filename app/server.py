@@ -3,25 +3,30 @@ from optparse import OptionParser
 import sys
 from gevent.pool import Pool
 from gevent.server import StreamServer
-from gevent.thread import get_ident
 
 from protocol_handler import ProtocolHandler
 from command_handler import CommandHandler
 from exc import CommandError, ClientQuit, Shutdown
+from const import Error
+from thread_server import ThreadedStreamServer
 
 
 logger = logging.getLogger(__name__)
 
 class QueueServer:
-    def __init__(self, host='0.0.0.0', port=8888, max_clients=2**10):
+    def __init__(self, host='0.0.0.0', port=8888, max_clients=2**10, use_gevent=True):
         self._host = host
         self._port = port
         self._max_clients = max_clients
-    
-        self._pool = Pool(self._max_clients)
-        self._server = StreamServer((self._host, self._port),
-                                    self.connection_handler,
-                                    spawn=self._pool)
+
+        if use_gevent:
+            self._pool = Pool(self._max_clients)
+            self._server = StreamServer((self._host, self._port),
+                                        self.connection_handler,
+                                        spawn=self._pool)
+        else:
+            self._server = ThreadedStreamServer((self._host, self._port),
+                                                self.connection_handler)
         
         self._protocol = ProtocolHandler()
         self._commands = CommandHandler()
@@ -43,8 +48,6 @@ class QueueServer:
                 break
             except Exception as e:
                 logger.error(f"Error processing request. {str(e)}")
-                break
-        logger.info('Finished reading request')
     
     def request_response(self, socket_file):
         data = self._protocol.handle_request(socket_file)
@@ -57,9 +60,11 @@ class QueueServer:
         except ClientQuit:
             self._protocol.write_response(socket_file, 1)
             raise
+        except CommandError as e:
+            resp = Error(e.message)
         except Exception as e:
             logger.exception(f'Unhandled error {str(e)}')
-            resp = "Unhandled error"
+            resp = Error('Unhandled server error')
         self._protocol.write_response(socket_file, resp)
     
     def respond(self, data):
@@ -86,11 +91,18 @@ class QueueServer:
 
 def get_option_parse() -> OptionParser:
     parser = OptionParser()
-    parser.add_option('-H', '--host', default='127.0.0.1', dest='host', help='Host to listen on.')
-    parser.add_option('-p', '--port', default='8888', dest='port', help='Port to listen on.', type='int')
-    parser.add_option('-d', '--debug', action='store_true', dest='debug', help='Log debug messages.')
-    parser.add_option('-e', '--errors', action='store_true', dest='error', help='Log error messages only.')
-    parser.add_option('-m', '--max-clients', default=1024, dest='max_clients', help='Maximum number of clients.', type=int)
+    parser.add_option('-H', '--host', default='127.0.0.1', dest='host',
+                      help='Host to listen on.')
+    parser.add_option('-p', '--port', default='8888', dest='port',
+                      help='Port to listen on.', type='int')
+    parser.add_option('-d', '--debug', action='store_true', dest='debug',
+                      help='Log debug messages.')
+    parser.add_option('-e', '--errors', action='store_true', dest='error',
+                      help='Log error messages only.')
+    parser.add_option('-m', '--max-clients', default=1024, dest='max_clients',
+                      help='Maximum number of clients.', type=int)
+    parser.add_option('-t', '--use-threads', action='store_false', default=True, dest='use_gevent',
+                      help='Use threads instead of gevent.')
     
     return parser
 
@@ -115,7 +127,9 @@ if __name__ == "__main__":
         sys.exit(1)
     
     configure_logger(options)
-    server = QueueServer(host=options.host, port=options.port, max_clients=options.max_clients)
+    server = QueueServer(host=options.host, port=options.port,
+                         max_clients=options.max_clients,
+                         use_gevent=options.use_gevent)
     print('\x1b[32m  / \\__')
     print(' \x1b[32m (    @\\____', 
           '\x1b[1;32mMiniRedis '
